@@ -1,0 +1,88 @@
+# OpenTelemetry Collector Configuration for Better Stack
+# Sends logs, metrics, and traces to Better Stack via OTLP
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+receivers:
+  # OTLP receiver for logs, metrics, and traces
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Batch processor to improve performance
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Add resource attributes for better context
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${RAILWAY_ENVIRONMENT}
+        action: upsert
+      - key: service.namespace
+        value: ticket-platform
+        action: insert
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+
+exporters:
+  # Better Stack exporter via OTLP HTTP
+  otlphttp/betterstack:
+    endpoint: https://${BETTER_STACK_INGESTING_HOST}
+    headers:
+      Authorization: Bearer ${BETTER_STACK_SOURCE_TOKEN}
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Logging exporter for debugging (optional - outputs to Railway logs)
+  logging:
+    loglevel: info
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  extensions: [health_check, zpages]
+
+  pipelines:
+    # Logs pipeline
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/betterstack, logging]
+
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/betterstack, logging]
+
+    # Traces pipeline
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/betterstack, logging]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
