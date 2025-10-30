@@ -52,9 +52,9 @@ exporters:
       max_interval: 30s
       max_elapsed_time: 300s
 
-  # Logging exporter for debugging (optional - outputs to Railway logs)
-  logging:
-    loglevel: info
+  # Debug exporter for debugging (optional - outputs to Railway logs)
+  debug:
+    verbosity: normal
     sampling_initial: 5
     sampling_thereafter: 200
 
@@ -66,23 +66,20 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, resource, batch]
-      exporters: [otlphttp/betterstack, logging]
+      exporters: [otlphttp/betterstack, debug]
 
     # Metrics pipeline
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, resource, batch]
-      exporters: [otlphttp/betterstack, logging]
+      exporters: [otlphttp/betterstack, debug]
 
     # Traces pipeline
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resource, batch]
-      exporters: [otlphttp/betterstack, logging]
+      exporters: [otlphttp/betterstack, debug]
 
   telemetry:
     logs:
       level: info
-    metrics:
-      level: detailed
-      address: 0.0.0.0:8888
